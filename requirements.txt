@@ -1,9 +1,1 @@
-requests >=2.23.0
-pyocclient >=0.4
-pytz >=2019.3
-simpleaudio >=1.0.4
-python-ldap >=3.2.0
-youtube_dl >=2020.3.24
-paramiko >=2.7.1
-pytarallo >=2.3.1
-python-vlc >=3.0.7110
+python-telegram-bot

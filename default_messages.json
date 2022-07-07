@@ -1,0 +1,6 @@
+{
+  "start": "<b>WEEE Open Telegram bot</b>\nThe goal of this bot is to obtain information about who is currently in the lab, who has done what, compute some stats and, in general, simplify the life of our members and to avoid waste of paper as well.\nFor a list of the available commands type /help.",
+  "ring_error": "Nobody is in lab right now, I cannot ring the bell.",
+  "ring_success": "You rang the bell \uD83D\uDD14 Wait at door 3 until someone comes. \uD83D\uDD14",
+  "log_format_error": "Wrong format. Please use /log or /log <date>"
+}
