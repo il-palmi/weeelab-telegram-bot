@@ -16,28 +16,54 @@ Author: WEEE Open Team
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
 import json
 import psycopg2
-import datetime
-
+import test
 import pytz
+import os
+import utils
+import telegram
+from datetime import datetime
+from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, filters, CallbackQueryHandler, CallbackContext, MessageHandler
 
 
-TOKEN = "2067550678:AAHMlWnjmfwoicfQmDTqysmeJr5NcJ9uMdU"
+load_dotenv(".env")
+
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
 DEFAULT_MESSAGES = json.load(open("default_messages.json"))
 
+WEBAPP = {
+    "CALENDARz": telegram.WebAppInfo("https://python-telegram-bot.org/static/webappbot"),
+    "CALENDAR": telegram.WebAppInfo("https://expented.github.io/tgdtp/"),
+    "TARALLO": telegram.WebAppInfo("https://tarallo.weeeopen.it/"),
+}
 
+'''
+default_callback_structure = {
+    "source": "command source",
+    "type": "type of response",
+    "action": "user action",
+    "args": "arguments"
+}
+'''
+
+
+# Commands handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id,
                                    text=DEFAULT_MESSAGES["start"],
                                    parse_mode='HTML')
 
+
 async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     def compose_message(fetch: list) -> str:
+        if not fetch:
+            message = DEFAULT_MESSAGES["log_empty"]
+            return message
         date = fetch[0]["date_in"]
         message = f"<b>{date.date().strftime('%A %d-%m-%Y')}</b>\n\n"
         for row in fetch:
@@ -51,40 +77,91 @@ async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 message += ": inlab right now.\n"
         cursor.execute("SELECT MAX(GREATEST(date_in, date_out)) as latest FROM log;")
-        latest_log: datetime.datetime = cursor.fetchall()[0]["latest"]
+        # noinspection PyTypeChecker
+        latest_log: datetime = cursor.fetchall()[0]["latest"]
         latest_log = latest_log.replace(tzinfo=pytz.UTC)
         latest_log = latest_log.astimezone(pytz.timezone("Europe/Rome"))
-        message += f"\nLatest log update: {latest_log.strftime('%d-%m-%Y %H:%M')}"
+        message += f"\nLatest log update: {latest_log.strftime('%d-%m-%Y %H:%M')}\n"
         return message
 
-    try:
-        args = update.message.text.split(" ", 1)[1]
-    except:
-        args = None
     connection = psycopg2.connect("dbname=weeelab user=weeelab-bot password=asd")
     cursor = connection.cursor(cursor_factory=RealDictCursor)
-    if not args:
-        cursor.execute("SELECT * FROM log WHERE date_trunc('day', date_in) = date_trunc('day', (SELECT MAX(date_in) FROM log));")
-        message = compose_message(cursor.fetchall())
-    elif len(args.split()) > 1:
-        message = DEFAULT_MESSAGES["log_format_error"]
-    else:
-        cursor.execute(
-            f"SELECT * FROM log WHERE date_trunc('day', date_in) = {datetime.datetime.now().date()}")
-        message = compose_message(cursor.fetchall())
-
-    sender = context.bot.send_message(chat_id=update.effective_chat.id,
-                                   text=f"{message}",
-                                   parse_mode='HTML')
+    cursor.execute("SELECT * FROM log WHERE date_trunc('day', date_in) = date_trunc('day', (SELECT MAX(date_in) FROM log));")
+    message = compose_message(cursor.fetchall())
+    callback = {
+        "source": "log",
+        "type": "calendar",
+        "action": "show_calendar",
+        "args": None
+    }
+    keyboard = [
+        [
+            InlineKeyboardButton("Select date",
+                                 callback_data=f""
+                                 )
+         ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    sender = update.message.reply_text(text=message,
+                                       parse_mode="HTML",
+                                       reply_markup=reply_markup)
     cursor.close()
     connection.close()
     await sender
 
 
+async def web_app_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    data = json.loads(update.effective_message.web_app_data.data)
+    print(data)
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(
+        text=f"You selected the color with the HEX value <code>{data['hex']}</code>. The "
+             f"corresponding RGB value is <code>{tuple(data['rgb'].values())}</code>."
+    )
+
+
+async def inline_buttons_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    button_data = dict(update.callback_query.data)
+    await query.answer()
+    if button_data["source"] == "None":
+        return
+    elif button_data["source"] == "log":
+        await calendar(query, button_data)
+
+
+async def calendar(query: telegram.CallbackQuery, button_data: dict):
+    if button_data["action"] == 'show_select':
+        # show calendar in chat
+        date = datetime.today()
+        keyboard = test.get_calendar_keyboard(
+            source=button_data["source"],
+            month=date.month,
+            year=date.year
+        )
+        await query.edit_message_reply_markup()
+    elif button_data["action"] == 'confirm':
+        # show new log for date
+        pass
+    elif button_data["action"] == 'change_month':
+        # change calendar
+        pass
+
+
 if __name__ == "__main__":
     application = ApplicationBuilder().token(TOKEN).build()
-    start_handler = CommandHandler("start", start)
-    # log_handler = CommandHandler("log", log)
-    application.add_handler(start_handler)
-    application.add_handler(CommandHandler("log", log))
+
+    # Command handlers
+    application.add_handlers([
+        CommandHandler("start", start),
+        CommandHandler("log", log),
+    ])
+
+    # Message handlers
+    application.add_handlers([
+        MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data),
+        CallbackQueryHandler(inline_buttons_callback)
+    ])
+
     application.run_polling()
