@@ -78,5 +78,114 @@ def make_calendar(source: str, month: int = 0):
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_calendar_keyboard(month: int, year: int) -> InlineKeyboardMarkup:
-    pass
+def get_calendar_keyboard(source: str, month: int, year: int):
+    today = datetime.today()
+
+    # Making calendar structure
+    cal = get_calendar_structure(month, year)
+
+    # Making keyboard structure
+    keyboard = []
+    for row in cal:
+        kb_line = []
+        for item in row:
+            if isinstance(row, str):
+                button = InlineKeyboardButton(
+                    f"{row}",
+                    callback_data="empty"
+                )
+                kb_line.append(button)
+                break
+            if item.isdigit():
+                callback = {
+                    "source": source,
+                    "type": "calendar",
+                    "action": "confirm",
+                    "args": f"{item}-{month}-{year}"
+                }
+                if int(item) == today.day:
+                    text = f"🎈{item}"
+                elif int(item) > today.day:
+                    text = f"{item}"
+                else:
+                    text = f"{item}"
+                    callback = {
+                        "source": source,
+                        "type": "calendar",
+                        "action": None,
+                        "args": None
+                    }
+                button = InlineKeyboardButton(
+                    text,
+                    callback_data=dump_callback(callback)
+                )
+            else:
+                button = InlineKeyboardButton(
+                    item,
+                    callback_data="empty"
+                )
+            kb_line.append(button)
+        keyboard.append(kb_line)
+    increase_callback = {
+        "source": source,
+        "type": "calendar",
+        "action": "show",
+        "args": f"{month+1}-{year}"
+    }
+    decrease_callback = {
+        "source": source,
+        "type": "calendar",
+        "action": "show",
+        "args": f"{month-1}-{year}"
+    }
+    abort_callback = {
+        "source": source,
+        "type": "calendar",
+        "action": "abort",
+        "args": None
+    }
+    keyboard.append(
+        [
+            InlineKeyboardButton("⬅️", callback_data=f"{dump_callback(decrease_callback)}"),
+            InlineKeyboardButton("❌", callback_data=f"{dump_callback(abort_callback)}"),
+            InlineKeyboardButton("➡️", callback_data=f"{dump_callback(increase_callback)}"),
+
+        ]
+    )
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_calendar_structure(month, year) -> list:
+    calendar = cal.month(year, month).splitlines()
+    calendar[0] = calendar[0].lstrip(" ")
+    for idx, row in enumerate(calendar[1:]):
+        calendar[idx + 1] = row.split()
+    while len(calendar[2]) < 7:
+        calendar[2].insert(0, " ")
+    while len(calendar[-1]) < 7:
+        calendar[-1].append(" ")
+    return calendar
+
+
+def dump_callback(callback: dict) -> [str, None]:
+    if isinstance(callback, str):
+        return None
+    dumped_cb = ""
+    for idx in callback:
+        dumped_cb += f"{callback[idx]}:"
+    return dumped_cb.rstrip(":")
+
+
+def load_callback(dumped_cb: str) -> [dict, None]:
+    data = dumped_cb.split(":")
+    try:
+        callback = {
+            "source": data[0],
+            "type": data[1],
+            "action": data[2],
+            "args": data[3],
+        }
+    except IndexError:
+        print("ERROR: Missing data in callback structure. Check for SOURCE, TYPE, ACTION or ARGS.")
+        return None
+    return callback

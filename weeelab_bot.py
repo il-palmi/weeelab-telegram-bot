@@ -91,13 +91,13 @@ async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     callback = {
         "source": "log",
         "type": "calendar",
-        "action": "show_calendar",
+        "action": "show",
         "args": None
     }
     keyboard = [
         [
             InlineKeyboardButton("Select date",
-                                 callback_data=f""
+                                 callback_data=utils.dump_callback(callback)
                                  )
          ]
     ]
@@ -110,6 +110,7 @@ async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await sender
 
 
+# Web app things
 async def web_app_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     data = json.loads(update.effective_message.web_app_data.data)
     print(data)
@@ -121,9 +122,12 @@ async def web_app_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
+# Callbacks
 async def inline_buttons_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    button_data = dict(update.callback_query.data)
+    button_data = utils.load_callback(update.callback_query.data)
+    if not button_data:
+        return
     await query.answer()
     if button_data["source"] == "None":
         return
@@ -132,23 +136,29 @@ async def inline_buttons_callback(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def calendar(query: telegram.CallbackQuery, button_data: dict):
-    if button_data["action"] == 'show_select':
+    if button_data["action"] == 'show':
         # show calendar in chat
-        date = datetime.today()
-        keyboard = test.get_calendar_keyboard(
+        if button_data["args"] != 'None':
+            date = button_data["args"].split("-")
+            month = int(date[0])
+            year = int(date[1])
+        else:
+            date = datetime.today()
+            month = date.month
+            year = date.year
+        keyboard = utils.get_calendar_keyboard(
             source=button_data["source"],
-            month=date.month,
-            year=date.year
+            month=month,
+            year=year
         )
-        await query.edit_message_reply_markup()
+        await query.edit_message_reply_markup(reply_markup=keyboard)
     elif button_data["action"] == 'confirm':
-        # show new log for date
         pass
-    elif button_data["action"] == 'change_month':
-        # change calendar
-        pass
+    elif button_data["action"] == 'abort':
+        await query.edit_message_text(query.message.text)
 
 
+# Main
 if __name__ == "__main__":
     application = ApplicationBuilder().token(TOKEN).build()
 
