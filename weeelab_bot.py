@@ -18,7 +18,6 @@ Author: WEEE Open Team
 
 import json
 import psycopg2
-import test
 import pytz
 import os
 import utils
@@ -27,7 +26,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, filters, CallbackQueryHandler, CallbackContext, MessageHandler
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, filters, CallbackQueryHandler,\
+    CallbackContext, MessageHandler
 
 
 load_dotenv(".env")
@@ -42,6 +42,13 @@ WEBAPP = {
     "TARALLO": telegram.WebAppInfo("https://tarallo.weeeopen.it/"),
 }
 
+application = (
+    ApplicationBuilder()
+    .token(TOKEN)
+    .arbitrary_callback_data(True)
+    .build()
+)
+
 '''
 default_callback_structure = {
     "source": "command source",
@@ -52,13 +59,32 @@ default_callback_structure = {
 '''
 
 
+# Decorators
+def command_handler(command):
+    def decorator(func):
+        handler = CommandHandler(command, func)
+        application.add_handler(handler)
+        return func
+    return decorator
+
+
+def callback_query_handler(callback: str):
+    def decorator(func):
+        handler = CallbackQueryHandler(func, pattern=callback)
+        application.add_handler(handler)
+        return func
+    return decorator
+
+
 # Commands handlers
+@command_handler("start")
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id,
                                    text=DEFAULT_MESSAGES["start"],
                                    parse_mode='HTML')
 
 
+@command_handler("log")
 async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     def compose_message(fetch: list) -> str:
         if not fetch:
@@ -84,7 +110,7 @@ async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"\nLatest log update: {latest_log.strftime('%d-%m-%Y %H:%M')}\n"
         return message
 
-    connection = psycopg2.connect("dbname=weeelab user=weeelab-bot password=asd")
+    connection = psycopg2.connect("dbname=weeelab user=weeelab_bot password=asd")
     cursor = connection.cursor(cursor_factory=RealDictCursor)
     cursor.execute("SELECT * FROM log WHERE date_trunc('day', date_in) = date_trunc('day', (SELECT MAX(date_in) FROM log));")
     message = compose_message(cursor.fetchall())
@@ -107,6 +133,16 @@ async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                        reply_markup=reply_markup)
     cursor.close()
     connection.close()
+    await sender
+
+
+@command_handler("test")
+async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [[InlineKeyboardButton("asda", callback_data="asd")]]
+    keyboard = InlineKeyboardMarkup(keyboard)
+    sender = update.message.reply_text(text="lool",
+                                       parse_mode="HTML",
+                                       reply_markup=keyboard)
     await sender
 
 
@@ -135,6 +171,11 @@ async def inline_buttons_callback(update: Update, context: ContextTypes.DEFAULT_
         await calendar(query, button_data)
 
 
+@callback_query_handler("asd")
+async def lol(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    print("asd")
+
+
 async def calendar(query: telegram.CallbackQuery, button_data: dict):
     if button_data["action"] == 'show':
         # show calendar in chat
@@ -160,18 +201,4 @@ async def calendar(query: telegram.CallbackQuery, button_data: dict):
 
 # Main
 if __name__ == "__main__":
-    application = ApplicationBuilder().token(TOKEN).build()
-
-    # Command handlers
-    application.add_handlers([
-        CommandHandler("start", start),
-        CommandHandler("log", log),
-    ])
-
-    # Message handlers
-    application.add_handlers([
-        MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data),
-        CallbackQueryHandler(inline_buttons_callback)
-    ])
-
     application.run_polling()
