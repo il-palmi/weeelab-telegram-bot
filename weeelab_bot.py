@@ -28,6 +28,7 @@ from psycopg2.extras import RealDictCursor
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, filters, CallbackQueryHandler,\
     CallbackContext, MessageHandler
+from utils import Database
 
 
 load_dotenv(".env")
@@ -86,7 +87,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @command_handler("log")
 async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    def compose_message(fetch: list) -> str:
+    def compose_message(cursor: RealDictCursor) -> str:
+        fetch = cursor.fetchall()
         if not fetch:
             message = DEFAULT_MESSAGES["log_empty"]
             return message
@@ -110,52 +112,27 @@ async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"\nLatest log update: {latest_log.strftime('%d-%m-%Y %H:%M')}\n"
         return message
 
-    connection = psycopg2.connect("dbname=weeelab user=weeelab_bot password=asd")
-    cursor = connection.cursor(cursor_factory=RealDictCursor)
-    cursor.execute("SELECT * FROM log WHERE date_trunc('day', date_in) = date_trunc('day', (SELECT MAX(date_in) FROM log));")
-    message = compose_message(cursor.fetchall())
-    callback = {
+    with Database() as db:
+        db.cursor.execute("SELECT * FROM log WHERE date_trunc('day', date_in) = date_trunc('day', (SELECT MAX(date_in) FROM log));")
+        message = compose_message(db.cursor)
+        callback = {
         "source": "log",
         "type": "calendar",
         "action": "show",
         "args": None
     }
-    keyboard = [
+        keyboard = [
         [
             InlineKeyboardButton("Select date",
                                  callback_data=utils.dump_callback(callback)
                                  )
          ]
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    sender = update.message.reply_text(text=message,
-                                       parse_mode="HTML",
-                                       reply_markup=reply_markup)
-    cursor.close()
-    connection.close()
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        sender = update.message.reply_text(text=message,
+                                           parse_mode="HTML",
+                                           reply_markup=reply_markup)
     await sender
-
-
-@command_handler("test")
-async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[InlineKeyboardButton("asda", callback_data="asd")]]
-    keyboard = InlineKeyboardMarkup(keyboard)
-    sender = update.message.reply_text(text="lool",
-                                       parse_mode="HTML",
-                                       reply_markup=keyboard)
-    await sender
-
-
-# Web app things
-async def web_app_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    data = json.loads(update.effective_message.web_app_data.data)
-    print(data)
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(
-        text=f"You selected the color with the HEX value <code>{data['hex']}</code>. The "
-             f"corresponding RGB value is <code>{tuple(data['rgb'].values())}</code>."
-    )
 
 
 # Callbacks
@@ -169,11 +146,6 @@ async def inline_buttons_callback(update: Update, context: ContextTypes.DEFAULT_
         return
     elif button_data["source"] == "log":
         await calendar(query, button_data)
-
-
-@callback_query_handler("asd")
-async def lol(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    print("asd")
 
 
 async def calendar(query: telegram.CallbackQuery, button_data: dict):

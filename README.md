@@ -43,3 +43,48 @@ Only for admin users
 - `/stat name.surname` - Show hours spent in lab by this user
 - `/top` - Show a list of top users by hours spent this month
 - `/top all` - Show a list of top users by hours spent
+
+## Developers setup
+First you need to install postgreSQL on your machine, create the user `weeelab_bot` and the `weeelab` database. Execute the following commands:
+
+```
+~ sudo apt install postgresql
+~ sudo service postgresql start 
+~ sudo -u postgres psql
+```
+
+Inside the postgreSQL shell, change the default user password with:
+
+```
+postgres=# \password postgres
+--- change password ---
+postgres=# \q
+```
+
+Then, we need to create the user weeelab_bot:
+
+```
+~ sudo adduser weeelab_bot
+~ sudo passwd weeelab_bot
+--- change password ---
+~ sudo -u postgres createuser --interactive
+--- create user 'weeelab_bot' saying no to all the questions ---
+```
+
+Make sure that the individual user passwords are the same on the system and on postgreSQL.
+
+Now, we need to create the `weeelab` database and load the default tables:
+
+```
+~ sudo -u postgres createdb weeelab
+~ sudo -u postgres psql weeelab < weeelab.sql
+~ sudo -u postgres psql
+postgres=# \c weeelab
+postgres=# GRANT ALL PRIVILEGES ON log_raw TO weeelab_bot;
+postgres=# GRANT ALL PRIVILEGES ON log TO weeelab_bot;
+postgres=# \q
+```
+
+Now set up your Python development environment using the `requirements.txt` file provided by this repository.
+
+You may need to setup the `.env` file with all the environment parameters.

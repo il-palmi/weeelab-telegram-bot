@@ -1,6 +1,9 @@
+import calendar as cal
+import psycopg2
+import os
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime
-import calendar as cal
+from psycopg2.extras import RealDictCursor
 
 
 class Calendar:
@@ -11,6 +14,19 @@ class Calendar:
 
     def get_month_label(self):
         return f"{cal.month_name[self.month]} {self.year}"
+
+
+class Database:
+    def __enter__(self):
+        self.connection = psycopg2.connect(f"dbname={os.getenv('POSTGRES_DB')}"
+                                           f" user={os.getenv('POSTGRES_USER')}"
+                                           f" password={os.getenv('POSTGRES_PASSWD')}")
+        self.cursor = self.connection.cursor(cursor_factory=RealDictCursor)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cursor.close()
+        self.connection.close()
 
 
 def make_calendar(source: str, month: int = 0):
