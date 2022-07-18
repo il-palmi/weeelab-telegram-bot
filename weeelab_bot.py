@@ -26,8 +26,16 @@ from datetime import datetime
 from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, filters, CallbackQueryHandler,\
-    CallbackContext, MessageHandler, InlineQueryHandler
+from telegram.ext import (
+    ApplicationBuilder,
+    ContextTypes,
+    CommandHandler,
+    filters,
+    CallbackQueryHandler,
+    CallbackContext,
+    MessageHandler,
+    InlineQueryHandler,
+)
 from utils import Database
 
 
@@ -38,25 +46,23 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 DEFAULT_MESSAGES = json.load(open("default_messages.json"))
 
 WEBAPP = {
-    "CALENDARz": telegram.WebAppInfo("https://python-telegram-bot.org/static/webappbot"),
+    "CALENDARz": telegram.WebAppInfo(
+        "https://python-telegram-bot.org/static/webappbot"
+    ),
     "CALENDAR": telegram.WebAppInfo("https://expented.github.io/tgdtp/"),
     "TARALLO": telegram.WebAppInfo("https://tarallo.weeeopen.it/"),
 }
 
-application = (
-    ApplicationBuilder()
-    .token(TOKEN)
-    .build()
-)
+application = ApplicationBuilder().token(TOKEN).build()
 
-'''
+"""
 default_callback_structure = {
     "source": "command source",
     "type": "type of response",
     "action": "user action",
     "args": "arguments"
 }
-'''
+"""
 
 
 # Decorators
@@ -65,6 +71,7 @@ def command_handler(command):
         handler = CommandHandler(command, func)
         application.add_handler(handler)
         return func
+
     return decorator
 
 
@@ -73,15 +80,18 @@ def callback_query_handler(callback: str):
         handler = CallbackQueryHandler(func, pattern=callback)
         application.add_handler(handler)
         return func
+
     return decorator
 
 
 # Commands handlers
 @command_handler("start")
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id,
-                                   text=DEFAULT_MESSAGES["start"],
-                                   parse_mode='HTML')
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=DEFAULT_MESSAGES["start"],
+        parse_mode="HTML",
+    )
 
 
 @command_handler("log")
@@ -95,7 +105,7 @@ async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = f"<b>{date.date().strftime('%A %d-%m-%Y')}</b>\n\n"
         for row in fetch:
             message += f"<i>{row['username']}</i>"
-            if row['duration']:
+            if row["duration"]:
                 seconds = row["duration"].total_seconds()
                 hours, remainder = divmod(seconds, 60 * 60)
                 minutes = int(remainder / 60)
@@ -112,38 +122,35 @@ async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return message
 
     with Database() as db:
-        db.cursor.execute("SELECT * FROM log WHERE date_trunc('day', date_in) = date_trunc('day', (SELECT MAX(date_in) FROM log));")
+        db.cursor.execute(
+            "SELECT * FROM log WHERE date_trunc('day', date_in) = date_trunc('day', (SELECT MAX(date_in) FROM log));"
+        )
         message = compose_message(db.cursor)
-    callback = {
-    "source": "log",
-    "type": "calendar",
-    "action": "show",
-    "args": None
-}
+    callback = {"source": "log", "type": "calendar", "action": "show", "args": None}
     keyboard = [
-    [
-        InlineKeyboardButton("Select date",
-                             callback_data=utils.dump_callback(callback)
-                             ),
-        InlineKeyboardButton("coglione",
-                             callback_data="test"
-                             ),
-     ]
-]
+        [
+            InlineKeyboardButton(
+                "Select date", callback_data=utils.dump_callback(callback)
+            ),
+            InlineKeyboardButton("coglione", callback_data="test"),
+        ]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    sender = update.message.reply_text(text=message,
-                                       parse_mode="HTML",
-                                       reply_markup=reply_markup)
+    sender = update.message.reply_text(
+        text=message, parse_mode="HTML", reply_markup=reply_markup
+    )
     await sender
 
 
 @command_handler("tolab")
 async def tolab(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = "Please, select a date"
-    keyboard = utils.get_calendar_keyboard("tolab", datetime.today().month, datetime.today().year)
-    sender = update.message.reply_text(text=message,
-                                       parse_mode="HTML",
-                                       reply_markup=keyboard)
+    keyboard = utils.get_calendar_keyboard(
+        "tolab", datetime.today().month, datetime.today().year
+    )
+    sender = update.message.reply_text(
+        text=message, parse_mode="HTML", reply_markup=keyboard
+    )
     await sender
 
 
@@ -175,15 +182,15 @@ async def tolab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await time_picker(query)
 
     # User change month
-    elif button_data["action"] == 'show':
+    elif button_data["action"] == "show":
         await calendar(query, button_data)
 
     # User abort tolab
-    elif button_data["action"] == 'abort':
+    elif button_data["action"] == "abort":
         await query.edit_message_text(f"❌ Tolab canceled")
 
     # User insert time
-    elif button_data["action"] == 'time':
+    elif button_data["action"] == "time":
         await tolab(
             telegram_id=query.message.from_user.id,
             date=button_data["args"],
@@ -192,9 +199,9 @@ async def tolab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def calendar(query: telegram.CallbackQuery, button_data: dict) -> None:
-    if button_data["action"] == 'show':
+    if button_data["action"] == "show":
         # show calendar in chat
-        if button_data["args"] != 'None':
+        if button_data["args"] != "None":
             date = button_data["args"].split("-")
             month = int(date[0])
             year = int(date[1])
@@ -203,14 +210,12 @@ async def calendar(query: telegram.CallbackQuery, button_data: dict) -> None:
             month = date.month
             year = date.year
         keyboard = utils.get_calendar_keyboard(
-            source=button_data["source"],
-            month=month,
-            year=year
+            source=button_data["source"], month=month, year=year
         )
         await query.edit_message_reply_markup(reply_markup=keyboard)
-    elif button_data["action"] == 'confirm':
+    elif button_data["action"] == "confirm":
         pass
-    elif button_data["action"] == 'abort':
+    elif button_data["action"] == "abort":
         await query.edit_message_text(query.message.text)
 
 
