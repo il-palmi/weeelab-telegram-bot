@@ -119,7 +119,7 @@ def get_calendar_keyboard(source: str, month: int, year: int):
                     "action": "confirm",
                     "args": f"{item}-{month}-{year}"
                 }
-                if int(item) == today.day:
+                if int(item) == today.day and today.month == month and today.year == year:
                     text = f"🎈{item}"
                 elif int(item) > today.day:
                     text = f"{item}"
@@ -146,13 +146,13 @@ def get_calendar_keyboard(source: str, month: int, year: int):
         "source": source,
         "type": "calendar",
         "action": "show",
-        "args": f"{month+1}-{year}"
+        "args": f"{month+1 if month < 12 else 1}-{year if month < 12 else year+1}"
     }
     decrease_callback = {
         "source": source,
         "type": "calendar",
         "action": "show",
-        "args": f"{month-1}-{year}"
+        "args": f"{month-1 if month > 1 else 12}-{year if month > 1 else year-1}"
     }
     abort_callback = {
         "source": source,
