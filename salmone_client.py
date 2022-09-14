@@ -28,7 +28,7 @@ class TLSClient(LineReceiver):
         if self is None:
             print("Cannot send message to server. No connection.")
         else:
-            msg = msg.encode('utf-8')
+            msg = msg.encode("utf-8")
             self.sendLine(msg)
 
     def disconnect(self):
@@ -43,10 +43,10 @@ class ClientFactory(protocol.ClientFactory):
         self.certData = None
 
     def startFactory(self):
-        self.certData = getModule(__name__).filePath.sibling('client.pem').getContent()
+        self.certData = getModule(__name__).filePath.sibling("client.pem").getContent()
         self.cert = ssl.PrivateCertificate.loadPEM(self.certData)
         self.options = self.cert.options()
-    
+
     def clientConnectionFailed(self, connector, reason):
         print("Connection failed.")
 
@@ -85,11 +85,11 @@ def main():
     r_thread.start()
     while True:
         cmd = input()
-        if cmd == 'reconnect':
+        if cmd == "reconnect":
             r_thread.reconnect()
         else:
             r_thread.send(cmd)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
