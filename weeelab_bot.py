@@ -165,7 +165,7 @@ async def tolab(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     AUTHORIZATION = {
         "command": "GET_AUTHORIZATION",
-        "user": update.message.from_user.id
+        "user": update.message.from_user.id,
     }
     r_thread.send(update, context, json.dumps(AUTHORIZATION))
 
