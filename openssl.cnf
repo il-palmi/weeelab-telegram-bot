@@ -1,0 +1,12 @@
+[ req ]
+prompt = no
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+C = IT
+ST = Piedmont
+L = Turin
+O = Weee Open
+OU = Weee Open Software
+CN = weeeopen.it
+emailAddress = weeeopen@polito.it

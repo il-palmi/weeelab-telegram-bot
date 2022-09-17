@@ -17,6 +17,8 @@ Author: WEEE Open Team
 """
 
 import json
+import threading
+
 import psycopg2
 import pytz
 import os
@@ -37,6 +39,7 @@ from telegram.ext import (
     InlineQueryHandler,
 )
 from utils import Database
+from salmone_client import ReactorThread
 
 
 load_dotenv(".env")
@@ -54,6 +57,10 @@ WEBAPP = {
 }
 
 application = ApplicationBuilder().token(TOKEN).build()
+
+salmone_host = os.environ.get("SALMONE_HOST")
+salmone_port = int(os.environ.get("SALMONE_PORT"))
+r_thread = ReactorThread(salmone_host, salmone_port)
 
 """
 default_callback_structure = {
@@ -154,6 +161,15 @@ async def tolab(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await sender
 
 
+@command_handler("test")
+async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    AUTHORIZATION = {
+        "command": "GET_AUTHORIZATION",
+        "user": update.message.from_user.id
+    }
+    r_thread.send(update, context, json.dumps(AUTHORIZATION))
+
+
 # Callbacks
 @callback_query_handler("test")
 async def test_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -225,4 +241,5 @@ async def time_picker(query: telegram.CallbackQuery) -> None:
 
 # Main
 if __name__ == "__main__":
+    r_thread.start()
     application.run_polling()
